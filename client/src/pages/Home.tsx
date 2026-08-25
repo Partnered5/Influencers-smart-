@@ -52,6 +52,8 @@ export default function Home() {
   const avatarMutation = trpc.avatar.generate.useMutation();
   const exportMutation = trpc.content.createExport.useMutation();
   const workspaceCreateMutation = trpc.workspace.create.useMutation();
+  const batchMutation = trpc.avatar.batchGenerate.useMutation();
+  const selectVariationMutation = trpc.avatar.selectVariation.useMutation();
   const [activeNav, setActiveNav] = useState("Overview");
   const [activeStyle, setActiveStyle] = useState("Editorial");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,6 +70,10 @@ export default function Home() {
   const [identityLock, setIdentityLock] = useState(true);
   const [referenceImage, setReferenceImage] = useState<{ b64Json: string; mimeType: string; fileName: string } | undefined>();
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
+  const [batchCount, setBatchCount] = useState(3);
+  const [batchResults, setBatchResults] = useState<Array<{ profileId: number; contentId: number; imageUrl?: string; seed: number; variationIndex: number; isSelected: boolean }>>([]);
+  const [variationGroup, setVariationGroup] = useState<string | null>(null);
+  const [generatedWorkspaceId, setGeneratedWorkspaceId] = useState(0);
 
   const activeLook = useMemo(
     () => styleOptions.find((item) => item.label === activeStyle) ?? styleOptions[0],
@@ -104,6 +110,27 @@ export default function Home() {
       await libraryQuery.refetch();
     } catch (error) { toast.error(error instanceof Error ? error.message : "Avatar generation failed"); }
     finally { setGenerating(false); }
+  }
+
+  async function handleBatchGenerate() {
+    if (!isAuthenticated) { toast.info("Sign in to generate and compare variations"); startLogin(); return; }
+    setGenerating(true);
+    try {
+      let activeWorkspaceId = workspaceId;
+      if (!activeWorkspaceId) { activeWorkspaceId = await workspaceCreateMutation.mutateAsync({ name: "Aria Vale / Studio", creatorName: "Aria Vale", creatorBio: "A thoughtful fictional virtual creator for everyday rituals.", persona: "Curious, warm, specific, and observant.", voice: "Warm, considered, never salesy.", visualAnchor: "Warm olive skin, shoulder-length dark wavy hair, hazel eyes, softly angular face.", disclosureEnabled: true }); setGeneratedWorkspaceId(activeWorkspaceId); await workspaceQuery.refetch(); } else { setGeneratedWorkspaceId(activeWorkspaceId); }
+      const result = await batchMutation.mutateAsync({ workspaceId: activeWorkspaceId, prompt, seed, pose, wardrobe, setting, composition, identityLock, ageConfirmed: true, count: batchCount, ...(referenceImage ? { referenceImage } : {}) });
+      setVariationGroup(result.variationGroup); setBatchResults(result.results); setActiveNav("Avatar studio");
+      toast.success(`${result.results.length} variations ready for comparison`, { description: "Choose a winner or download any frame." });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Batch generation failed"); }
+    finally { setGenerating(false); }
+  }
+
+  async function handleSelectVariation(profileId: number) {
+    const activeWorkspaceId = workspaceId || generatedWorkspaceId;
+    if (!activeWorkspaceId || !variationGroup) return;
+    setBatchResults((items) => items.map((item) => ({ ...item, isSelected: item.profileId === profileId })));
+    await selectVariationMutation.mutateAsync({ workspaceId: activeWorkspaceId, variationGroup, profileId });
+    toast.success("Variation selected as the lead frame");
   }
 
   async function handleExport() {
@@ -165,9 +192,11 @@ export default function Home() {
           {activeNav === "Avatar studio" && <section className="avatar-control-panel card-surface">
             <div className="card-topline"><div><span className="section-number">STUDIO</span><span className="section-title">Generate a new identity-safe frame</span></div><span className="ai-label"><Sparkles size={13} /> SERVER-SIDE GENERATION</span></div>
             <div className="control-grid"><label className="control-field control-wide"><span>Creative prompt</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label><label className="control-field"><span>Pose</span><select value={pose} onChange={(event) => setPose(event.target.value)}><option>Natural three-quarter portrait</option><option>Walking candid</option><option>Seated product demo</option><option>Full-body lookbook</option></select></label><label className="control-field"><span>Wardrobe</span><input value={wardrobe} onChange={(event) => setWardrobe(event.target.value)} /></label><label className="control-field"><span>Seed</span><input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label><label className="control-field"><span>Setting</span><select value={setting} onChange={(event) => setSetting(event.target.value)}><option>Warm coastal beach at golden hour</option><option>Clean editorial studio</option><option>Modern city street</option><option>Product tabletop scene</option></select></label><label className="control-field"><span>Composition</span><select value={composition} onChange={(event) => setComposition(event.target.value)}><option>Full-body editorial lookbook frame</option><option>Three-quarter fashion portrait</option><option>Close-up beauty crop</option><option>Product-in-hand medium shot</option></select></label><label className="reference-upload"><span>Reference image</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceChange} /><div className="reference-drop">{referencePreview ? <img src={referencePreview} alt="Uploaded generation reference" /> : <><Plus size={16} /><strong>Upload sample</strong><small>PNG, JPG, WebP · adult subjects only</small></>}</div></label></div>
-            <div className="control-footer"><label className="lock-toggle"><input type="checkbox" checked={identityLock} onChange={(event) => setIdentityLock(event.target.checked)} /><span className="toggle-track"><span /></span><strong>Identity lock</strong><small>Keep face, hair, and visual anchor consistent</small></label><button className="primary-button" onClick={handleGenerate} disabled={generating}><WandSparkles size={16} /> {generating ? "Generating securely…" : "Generate avatar"}</button></div>
+            <div className="control-footer"><label className="lock-toggle"><input type="checkbox" checked={identityLock} onChange={(event) => setIdentityLock(event.target.checked)} /><span className="toggle-track"><span /></span><strong>Identity lock</strong><small>Keep face, hair, and visual anchor consistent</small></label><div className="batch-actions"><select value={batchCount} onChange={(event) => setBatchCount(Number(event.target.value))} aria-label="Number of variations"><option value={2}>2 variations</option><option value={3}>3 variations</option><option value={4}>4 variations</option></select><button className="secondary-button" onClick={handleBatchGenerate} disabled={generating}><Layers3 size={15} /> {generating ? "Comparing…" : "Generate batch"}</button><button className="primary-button" onClick={handleGenerate} disabled={generating}><WandSparkles size={16} /> {generating ? "Generating securely…" : "Generate avatar"}</button></div></div>
             <div className="safety-copy">Adults only. Fictional likenesses only. Clothing and posing prompts are reviewed server-side, and every generated asset carries a disclosure stamp.</div>
           </section>}
+
+          {batchResults.length > 1 && <section className="comparison-panel card-surface"><div className="card-topline"><div><span className="section-number">COMPARE</span><span className="section-title">Batch variations</span></div><span className="ai-label"><Layers3 size={13} /> {batchResults.length} FRAMES · SAME BRIEF</span></div><div className="comparison-grid">{batchResults.map((item) => <article className={`variation-card ${item.isSelected ? "selected" : ""}`} key={item.profileId}>{item.imageUrl ? <img src={item.imageUrl} alt={`Variation ${item.variationIndex + 1}`} /> : <div className="variation-loading">Ready</div>}<div className="variation-meta"><div><strong>Variation {item.variationIndex + 1}</strong><span>Seed {item.seed}</span></div>{item.isSelected && <span className="lead-badge">LEAD</span>}</div><div className="variation-actions">{item.imageUrl && <a href={item.imageUrl} download={`influencer-smart-variation-${item.variationIndex + 1}.png`}>Download</a>}<button onClick={() => handleSelectVariation(item.profileId)} disabled={item.isSelected}>{item.isSelected ? "Selected" : "Select winner"}</button></div></article>)}</div><div className="safety-copy">Every comparison frame is a fictional adult virtual creator asset and carries the Influencer Smart AI disclosure in the saved library.</div></section>}
 
           {activeNav === "Content library" && <section className="library-panel card-surface"><div className="card-topline"><div><span className="section-number">LIBRARY</span><span className="section-title">Saved content</span></div><span className="ai-label"><ImageIcon size={13} /> {libraryQuery.data?.length ?? 0} ITEMS</span></div>{!isAuthenticated ? <div className="library-empty"><p>Sign in to see generated frames and exports saved to your workspace.</p><button className="primary-button" onClick={() => startLogin()}>Sign in to open library</button></div> : libraryQuery.isLoading ? <div className="library-empty"><p>Loading your saved content…</p></div> : libraryQuery.data?.length ? <div className="library-list">{libraryQuery.data.map((item) => <div className="library-item" key={item.id}>{item.assetUrl ? <img src={item.assetUrl} alt={item.title} /> : <div className="library-type">{item.kind}</div>}<div><strong>{item.title}</strong><span>{item.channel ?? "Studio"} · {item.format ?? "Draft"}</span><small>{item.disclosureStamp}</small></div><span className="library-status">{item.status}</span></div>)}</div> : <div className="library-empty"><p>Your first generated frame and export will appear here.</p><button className="primary-button" onClick={() => setActiveNav("Avatar studio")}>Create first frame</button></div>}</section>}
 

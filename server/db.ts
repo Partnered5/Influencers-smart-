@@ -66,3 +66,14 @@ export async function createContentItem(input: typeof contentItems.$inferInsert)
   const result = await db.insert(contentItems).values(input);
   return Number(result[0].insertId);
 }
+
+export async function listAvatarVariations(workspaceId: number, variationGroup: string) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(avatarProfiles).where(and(eq(avatarProfiles.workspaceId, workspaceId), eq(avatarProfiles.variationGroup, variationGroup))).orderBy(avatarProfiles.variationIndex);
+}
+
+export async function selectAvatarVariation(workspaceId: number, variationGroup: string, profileId: number) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  await db.update(avatarProfiles).set({ isSelected: 0 }).where(and(eq(avatarProfiles.workspaceId, workspaceId), eq(avatarProfiles.variationGroup, variationGroup)));
+  await db.update(avatarProfiles).set({ isSelected: 1 }).where(and(eq(avatarProfiles.workspaceId, workspaceId), eq(avatarProfiles.variationGroup, variationGroup), eq(avatarProfiles.id, profileId)));
+}

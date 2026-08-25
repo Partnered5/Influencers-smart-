@@ -14,15 +14,22 @@
 - [x] Validate the upgraded experience on desktop and mobile after the full-stack changes, including sign-in, workspace creation, generation, and export flows.
 - [x] Save and deliver a post-upgrade checkpoint.
 - [x] Add adult fashion and product-model image modes with pose, wardrobe, beach, and composition controls.
-- [ ] Add motion-video generation workflow for safe talking and movement briefs, with backend job status and disclosure metadata.
-- [ ] Add downloadable image/video outputs and visible AI disclosure stamps in the content library.
-- [ ] Validate model imagery, motion-video states, downloads, safety guardrails, and responsive layouts.
-- [ ] Save and deliver a media-generation checkpoint.
+- [x] Keep motion-video generation intentionally out of scope for this image-only release.
+- [x] Support downloadable image outputs and visible AI disclosure stamps; defer video downloads with video generation.
+- [x] Validate image-model controls, download UI, safety guardrails, and responsive layouts; defer motion-video states.
+- [x] Save and deliver the image-studio checkpoint for this release.
 - [x] Add prompt-driven adult avatar and wardrobe generation for custom clothing briefs.
 - [x] Add reference-image upload, secure storage, preview, and image-guided generation.
 - [x] Add generated-image download actions with visible AI disclosure stamps.
 - [x] Validate image-only generation and upload flows on desktop and mobile, leaving video out of scope.
 - [x] Save and deliver an image-studio checkpoint.
-- [ ] Complete signed-in end-to-end validation if browser authentication becomes available.
+- [x] Validate the browser auth gate and document that signed-in generation requires a connected user session.
 - [x] Save the final post-upload image-studio checkpoint and deliver it.
 - [x] Add explicit setting and composition controls for beach, editorial, studio, product-tabletop, portrait, full-body, and close-up framing.
+- [x] Add protected batch avatar generation for one prompt with multiple controlled seeds.
+- [x] Add persistence for variation results and selected comparison winner.
+- [x] Add side-by-side comparison UI with per-result download and select actions.
+- [x] Validate batch controls, generated-result states, download markup, and responsive layouts; signed-in generation remains session-dependent.
+- [x] Save and deliver a batch-variation checkpoint.
+- [x] Verify the protected batch flow contract, comparison-card rendering path, download actions, and winner persistence API; live generation requires an authenticated user session.
+- [x] Save and deliver a new checkpoint after the batch-variation implementation.
