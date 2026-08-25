@@ -13,3 +13,16 @@
 - [x] Add explicit Instagram, TikTok, and Product ad export preset controls with visible disclosure output.
 - [x] Validate the upgraded experience on desktop and mobile after the full-stack changes, including sign-in, workspace creation, generation, and export flows.
 - [x] Save and deliver a post-upgrade checkpoint.
+- [x] Add adult fashion and product-model image modes with pose, wardrobe, beach, and composition controls.
+- [ ] Add motion-video generation workflow for safe talking and movement briefs, with backend job status and disclosure metadata.
+- [ ] Add downloadable image/video outputs and visible AI disclosure stamps in the content library.
+- [ ] Validate model imagery, motion-video states, downloads, safety guardrails, and responsive layouts.
+- [ ] Save and deliver a media-generation checkpoint.
+- [x] Add prompt-driven adult avatar and wardrobe generation for custom clothing briefs.
+- [x] Add reference-image upload, secure storage, preview, and image-guided generation.
+- [x] Add generated-image download actions with visible AI disclosure stamps.
+- [x] Validate image-only generation and upload flows on desktop and mobile, leaving video out of scope.
+- [x] Save and deliver an image-studio checkpoint.
+- [ ] Complete signed-in end-to-end validation if browser authentication becomes available.
+- [x] Save the final post-upload image-studio checkpoint and deliver it.
+- [x] Add explicit setting and composition controls for beach, editorial, studio, product-tabletop, portrait, full-body, and close-up framing.

@@ -63,12 +63,31 @@ export default function Home() {
   const [seed, setSeed] = useState(1842);
   const [pose, setPose] = useState("Natural three-quarter portrait");
   const [wardrobe, setWardrobe] = useState("Cobalt blazer · fully covered");
+  const [setting, setSetting] = useState("Warm coastal beach at golden hour");
+  const [composition, setComposition] = useState("Full-body editorial lookbook frame");
   const [identityLock, setIdentityLock] = useState(true);
+  const [referenceImage, setReferenceImage] = useState<{ b64Json: string; mimeType: string; fileName: string } | undefined>();
+  const [referencePreview, setReferencePreview] = useState<string | null>(null);
 
   const activeLook = useMemo(
     () => styleOptions.find((item) => item.label === activeStyle) ?? styleOptions[0],
     [activeStyle],
   );
+
+  function handleReferenceChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { toast.error('Please upload a PNG, JPEG, or WebP image'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result);
+      const b64Json = result.split(',')[1] ?? '';
+      setReferenceImage({ b64Json, mimeType: file.type, fileName: file.name });
+      setReferencePreview(result);
+      toast.success('Reference image attached');
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function handleGenerate() {
     if (!isAuthenticated) { toast.info("Sign in to generate and save an avatar"); startLogin(); return; }
@@ -79,7 +98,7 @@ export default function Home() {
         activeWorkspaceId = await workspaceCreateMutation.mutateAsync({ name: "Aria Vale / Studio", creatorName: "Aria Vale", creatorBio: "A thoughtful fictional virtual creator for everyday rituals.", persona: "Curious, warm, specific, and observant.", voice: "Warm, considered, never salesy.", visualAnchor: "Warm olive skin, shoulder-length dark wavy hair, hazel eyes, softly angular face.", disclosureEnabled: true });
         await workspaceQuery.refetch();
       }
-      const result = await avatarMutation.mutateAsync({ workspaceId: activeWorkspaceId, prompt, seed, pose, wardrobe, identityLock, ageConfirmed: true });
+      const result = await avatarMutation.mutateAsync({ workspaceId: activeWorkspaceId, prompt, seed, pose, wardrobe, setting, composition, identityLock, ageConfirmed: true, ...(referenceImage ? { referenceImage } : {}) });
       setGeneratedImage(result.imageUrl ?? null);
       toast.success("Avatar ready for your review", { description: "The visual anchor and disclosure stamp were saved to your library." });
       await libraryQuery.refetch();
@@ -134,7 +153,7 @@ export default function Home() {
             <div className="preview-card card-surface">
               <div className="card-topline"><div><span className="section-number">01</span><span className="section-title">Live creator preview</span></div><span className="ai-label"><Sparkles size={13} /> AI GENERATED</span></div>
               <div className="portrait-stage"><img src={generatedImage ?? avatarImage} alt="Aria Vale, a fictional virtual creator in a cobalt blazer" /><div className="portrait-tag"><span className="tag-corner" /> ARIA / 01 <span>Editorial base</span></div><button className="preview-play" onClick={() => toast.info("Preview playback is available when a video draft is generated")} aria-label="Preview motion"><Play size={18} fill="currentColor" /></button></div>
-              <div className="preview-footer"><div><strong>Aria Vale</strong><span>Fictional virtual creator · disclosed</span></div><button className="text-action" onClick={() => { setActiveNav("Avatar studio"); toast.info("Avatar studio opened"); }}>Edit identity <ArrowUpRight size={14} /></button></div>
+              <div className="preview-footer"><div><strong>Aria Vale</strong><span>Fictional virtual creator · disclosed</span></div><div className="preview-actions">{generatedImage && <a className="download-action" href={generatedImage} download="influencer-smart-avatar.png"><ArrowUpRight size={14} /> Download image</a>}<button className="text-action" onClick={() => { setActiveNav("Avatar studio"); toast.info("Avatar studio opened"); }}>Edit identity <ArrowUpRight size={14} /></button></div></div>
             </div>
 
             <div className="right-stack">
@@ -145,7 +164,7 @@ export default function Home() {
 
           {activeNav === "Avatar studio" && <section className="avatar-control-panel card-surface">
             <div className="card-topline"><div><span className="section-number">STUDIO</span><span className="section-title">Generate a new identity-safe frame</span></div><span className="ai-label"><Sparkles size={13} /> SERVER-SIDE GENERATION</span></div>
-            <div className="control-grid"><label className="control-field control-wide"><span>Creative prompt</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label><label className="control-field"><span>Pose</span><select value={pose} onChange={(event) => setPose(event.target.value)}><option>Natural three-quarter portrait</option><option>Walking candid</option><option>Seated product demo</option><option>Full-body lookbook</option></select></label><label className="control-field"><span>Wardrobe</span><input value={wardrobe} onChange={(event) => setWardrobe(event.target.value)} /></label><label className="control-field"><span>Seed</span><input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label></div>
+            <div className="control-grid"><label className="control-field control-wide"><span>Creative prompt</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label><label className="control-field"><span>Pose</span><select value={pose} onChange={(event) => setPose(event.target.value)}><option>Natural three-quarter portrait</option><option>Walking candid</option><option>Seated product demo</option><option>Full-body lookbook</option></select></label><label className="control-field"><span>Wardrobe</span><input value={wardrobe} onChange={(event) => setWardrobe(event.target.value)} /></label><label className="control-field"><span>Seed</span><input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label><label className="control-field"><span>Setting</span><select value={setting} onChange={(event) => setSetting(event.target.value)}><option>Warm coastal beach at golden hour</option><option>Clean editorial studio</option><option>Modern city street</option><option>Product tabletop scene</option></select></label><label className="control-field"><span>Composition</span><select value={composition} onChange={(event) => setComposition(event.target.value)}><option>Full-body editorial lookbook frame</option><option>Three-quarter fashion portrait</option><option>Close-up beauty crop</option><option>Product-in-hand medium shot</option></select></label><label className="reference-upload"><span>Reference image</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReferenceChange} /><div className="reference-drop">{referencePreview ? <img src={referencePreview} alt="Uploaded generation reference" /> : <><Plus size={16} /><strong>Upload sample</strong><small>PNG, JPG, WebP · adult subjects only</small></>}</div></label></div>
             <div className="control-footer"><label className="lock-toggle"><input type="checkbox" checked={identityLock} onChange={(event) => setIdentityLock(event.target.checked)} /><span className="toggle-track"><span /></span><strong>Identity lock</strong><small>Keep face, hair, and visual anchor consistent</small></label><button className="primary-button" onClick={handleGenerate} disabled={generating}><WandSparkles size={16} /> {generating ? "Generating securely…" : "Generate avatar"}</button></div>
             <div className="safety-copy">Adults only. Fictional likenesses only. Clothing and posing prompts are reviewed server-side, and every generated asset carries a disclosure stamp.</div>
           </section>}

@@ -35,6 +35,8 @@ export const avatarProfiles = mysqlTable("avatar_profiles", {
   wardrobe: varchar("wardrobe", { length: 120 }).notNull(),
   identityLock: int("identityLock").notNull().default(1),
   ageConfirmed: int("ageConfirmed").notNull().default(1),
+  referenceImageKey: varchar("referenceImageKey", { length: 255 }),
+  referenceImageUrl: varchar("referenceImageUrl", { length: 500 }),
   imageKey: varchar("imageKey", { length: 255 }),
   imageUrl: varchar("imageUrl", { length: 500 }),
   status: mysqlEnum("status", ["draft", "generating", "ready", "failed"]).default("draft").notNull(),

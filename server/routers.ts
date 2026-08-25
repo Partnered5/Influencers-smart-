@@ -2,6 +2,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { generateImage } from "./_core/imageGeneration";
+import { storagePut } from "./storage";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { createAvatarProfile, createContentItem, createWorkspace, getWorkspaceForUser, listContentItems, listWorkspaces, updateAvatarProfile } from "./db";
@@ -22,13 +23,16 @@ const avatarInput = z.object({
   seed: z.number().int().min(0).max(2147483647),
   pose: z.string().min(1).max(80),
   wardrobe: z.string().min(1).max(120),
+  setting: z.string().min(1).max(100),
+  composition: z.string().min(1).max(100),
   identityLock: z.boolean().default(true),
   ageConfirmed: z.literal(true),
+  referenceImage: z.object({ b64Json: z.string().min(100), mimeType: z.string().regex(/^image\/(png|jpeg|webp)$/), fileName: z.string().max(160) }).optional(),
 });
 
-export function buildSafeAvatarPrompt(input: { creatorName: string; visualAnchor: string; prompt: string; seed: number; pose: string; wardrobe: string; identityLock: boolean }) {
+export function buildSafeAvatarPrompt(input: { creatorName: string; visualAnchor: string; prompt: string; seed: number; pose: string; wardrobe: string; setting: string; composition: string; identityLock: boolean }) {
   const identityInstruction = input.identityLock ? `Preserve the stable visual identity of ${input.creatorName}: ${input.visualAnchor}.` : "Create a new fictional adult virtual creator identity.";
-  return `Create a fictional adult virtual creator image for a disclosed marketing campaign. ${identityInstruction} Pose: ${input.pose}. Wardrobe: ${input.wardrobe}. Creative brief: ${input.prompt}. Seed reference: ${input.seed}. The person must be clearly fictional, adult, tasteful, and non-explicit. Avoid real-person likeness, minors, nudity, or sexualized framing.`;
+  return `Create a fictional adult virtual creator image for a disclosed marketing campaign. ${identityInstruction} Pose: ${input.pose}. Wardrobe: ${input.wardrobe}. Setting: ${input.setting}. Composition and framing: ${input.composition}. Creative brief: ${input.prompt}. Seed reference: ${input.seed}. The person must be clearly fictional, adult, tasteful, and non-explicit. Avoid real-person likeness, minors, nudity, or sexualized framing.`;
 }
 
 export const disclosureStamp = "AI-generated virtual creator · Influencer Smart";
@@ -70,10 +74,18 @@ export const appRouter = router({
     generate: protectedProcedure.input(avatarInput).mutation(async ({ ctx, input }) => {
       const workspace = await getWorkspaceForUser(input.workspaceId, ctx.user.id);
       if (!workspace) throw new Error("Workspace not found");
-      const profileId = await createAvatarProfile({ workspaceId: input.workspaceId, prompt: input.prompt, seed: input.seed, pose: input.pose, wardrobe: input.wardrobe, identityLock: input.identityLock ? 1 : 0, ageConfirmed: 1, status: "generating" });
-      const safePrompt = buildSafeAvatarPrompt({ creatorName: workspace.creatorName, visualAnchor: workspace.visualAnchor, prompt: input.prompt, seed: input.seed, pose: input.pose, wardrobe: input.wardrobe, identityLock: input.identityLock });
+      let referenceImageKey: string | undefined;
+      let referenceImageUrl: string | undefined;
+      if (input.referenceImage) {
+        const referenceBuffer = Buffer.from(input.referenceImage.b64Json, "base64");
+        const storedReference = await storagePut(`references/${ctx.user.id}/${input.referenceImage.fileName}`, referenceBuffer, input.referenceImage.mimeType);
+        referenceImageKey = storedReference.key;
+        referenceImageUrl = storedReference.url;
+      }
+      const profileId = await createAvatarProfile({ workspaceId: input.workspaceId, prompt: input.prompt, seed: input.seed, pose: input.pose, wardrobe: input.wardrobe, identityLock: input.identityLock ? 1 : 0, ageConfirmed: 1, referenceImageKey, referenceImageUrl, status: "generating" });
+      const safePrompt = buildSafeAvatarPrompt({ creatorName: workspace.creatorName, visualAnchor: workspace.visualAnchor, prompt: input.prompt, seed: input.seed, pose: input.pose, wardrobe: input.wardrobe, setting: input.setting, composition: input.composition, identityLock: input.identityLock });
       try {
-        const result = await generateImage({ prompt: safePrompt, quality: "medium" });
+        const result = await generateImage({ prompt: safePrompt, quality: "medium", originalImages: referenceImageUrl ? [{ url: referenceImageUrl, mimeType: input.referenceImage?.mimeType }] : undefined });
         await updateAvatarProfile(profileId, { imageKey: result.key, imageUrl: result.url, status: "ready" });
         const contentId = await createContentItem({ workspaceId: input.workspaceId, avatarProfileId: profileId, title: `${workspace.creatorName} · ${input.pose}`, kind: "image", channel: "Studio", format: "Portrait", body: input.prompt, assetKey: result.key, assetUrl: result.url, disclosureStamp: "AI-generated virtual creator · Influencer Smart", status: "ready" });
         return { profileId, contentId, imageUrl: result.url, disclosureStamp: "AI-generated virtual creator · Influencer Smart" };
