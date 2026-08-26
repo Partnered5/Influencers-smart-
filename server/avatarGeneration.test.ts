@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSafeAvatarPrompt, disclosureStamp } from "./routers";
+import { buildSafeAvatarPrompt, disclosureStamp, resolveProviderImageUrl } from "./routers";
 
 describe("avatar generation safety contract", () => {
   it("preserves the creator anchor when identity lock is enabled", () => {
@@ -18,6 +18,11 @@ describe("avatar generation safety contract", () => {
     const prompt = buildSafeAvatarPrompt({ creatorName: "Aria Vale", visualAnchor: "anchor", prompt: "product launch", seed: 9, pose: "Full-body lookbook", wardrobe: "Linen set", setting: "Warm coastal beach", composition: "Product-in-hand medium shot", identityLock: true });
     expect(prompt).toContain("Setting: Warm coastal beach");
     expect(prompt).toContain("Composition and framing: Product-in-hand medium shot");
+  });
+
+  it("accepts only provider-safe HTTPS reference URLs", () => {
+    expect(resolveProviderImageUrl("https://cdn.example.com/reference.jpg")).toBe("https://cdn.example.com/reference.jpg");
+    expect(() => resolveProviderImageUrl("/manus-storage/references/sample.jpg")).toThrow("Reference image could not be prepared");
   });
 
   it("keeps the disclosure stamp explicit and brand-scoped", () => {

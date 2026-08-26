@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { generateImage } from "./_core/imageGeneration";
-import { storagePut } from "./storage";
+import { storageGetSignedUrl, storagePut } from "./storage";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { createAvatarProfile, createContentItem, createWorkspace, getAvatarProfileById, getAvatarProfilesByIds, getWorkspaceForUser, listAvatarVariations, listContentItems, listWorkspaces, selectAvatarVariation, updateAvatarProfile, updateVariationRanks } from "./db";
@@ -37,6 +37,17 @@ export function buildSafeAvatarPrompt(input: { creatorName: string; visualAnchor
 }
 
 export const disclosureStamp = "AI-generated virtual creator · Influencer Smart";
+
+export function resolveProviderImageUrl(url?: string) {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("invalid protocol");
+    return url;
+  } catch {
+    throw new Error("Reference image could not be prepared for generation. Please upload the image again.");
+  }
+}
 
 const batchInput = avatarInput.extend({ count: z.number().int().min(2).max(4), wardrobes: z.array(z.string().min(1).max(120)).min(2).max(4).optional() });
 
@@ -82,16 +93,18 @@ export const appRouter = router({
       if (!workspace) throw new Error("Workspace not found");
       let referenceImageKey: string | undefined;
       let referenceImageUrl: string | undefined;
+      let referenceImageGenerationUrl: string | undefined;
       if (input.referenceImage) {
         const referenceBuffer = Buffer.from(input.referenceImage.b64Json, "base64");
         const storedReference = await storagePut(`references/${ctx.user.id}/${input.referenceImage.fileName}`, referenceBuffer, input.referenceImage.mimeType);
         referenceImageKey = storedReference.key;
         referenceImageUrl = storedReference.url;
+        referenceImageGenerationUrl = resolveProviderImageUrl(await storageGetSignedUrl(storedReference.key));
       }
       const profileId = await createAvatarProfile({ workspaceId: input.workspaceId, prompt: input.prompt, seed: input.seed, pose: input.pose, wardrobe: input.wardrobe, identityLock: input.identityLock ? 1 : 0, ageConfirmed: 1, referenceImageKey, referenceImageUrl, status: "generating" });
       const safePrompt = buildSafeAvatarPrompt({ creatorName: workspace.creatorName, visualAnchor: workspace.visualAnchor, prompt: input.prompt, seed: input.seed, pose: input.pose, wardrobe: input.wardrobe, setting: input.setting, composition: input.composition, identityLock: input.identityLock });
       try {
-        const result = await generateImage({ prompt: safePrompt, quality: "medium", originalImages: referenceImageUrl ? [{ url: referenceImageUrl, mimeType: input.referenceImage?.mimeType }] : undefined });
+        const result = await generateImage({ prompt: safePrompt, quality: "medium", originalImages: referenceImageGenerationUrl ? [{ url: referenceImageGenerationUrl, mimeType: input.referenceImage?.mimeType }] : undefined });
         await updateAvatarProfile(profileId, { imageKey: result.key, imageUrl: result.url, status: "ready" });
         const contentId = await createContentItem({ workspaceId: input.workspaceId, avatarProfileId: profileId, title: `${workspace.creatorName} · ${input.pose}`, kind: "image", channel: "Studio", format: "Portrait", body: input.prompt, assetKey: result.key, assetUrl: result.url, disclosureStamp: "AI-generated virtual creator · Influencer Smart", status: "ready" });
         return { profileId, contentId, imageUrl: result.url, disclosureStamp: "AI-generated virtual creator · Influencer Smart" };
@@ -105,10 +118,12 @@ export const appRouter = router({
       if (!workspace) throw new Error("Workspace not found");
       const variationGroup = randomUUID().replaceAll("-", "").slice(0, 32);
       let referenceImageUrl: string | undefined;
+      let referenceImageGenerationUrl: string | undefined;
       if (input.referenceImage) {
         const referenceBuffer = Buffer.from(input.referenceImage.b64Json, "base64");
         const storedReference = await storagePut(`references/${ctx.user.id}/${Date.now()}-${input.referenceImage.fileName}`, referenceBuffer, input.referenceImage.mimeType);
         referenceImageUrl = storedReference.url;
+        referenceImageGenerationUrl = resolveProviderImageUrl(await storageGetSignedUrl(storedReference.key));
       }
       const results: Array<{ profileId: number; contentId: number; imageUrl?: string; seed: number; variationIndex: number; isSelected: boolean; wardrobe: string }> = [];
       for (let index = 0; index < input.count; index += 1) {
@@ -117,7 +132,7 @@ export const appRouter = router({
         const profileId = await createAvatarProfile({ workspaceId: input.workspaceId, prompt: input.prompt, seed: variationSeed, pose: input.pose, wardrobe: variationWardrobe, identityLock: input.identityLock ? 1 : 0, ageConfirmed: 1, referenceImageUrl, variationGroup, variationIndex: index, isSelected: index === 0 ? 1 : 0, status: "generating" });
         const safePrompt = buildSafeAvatarPrompt({ creatorName: workspace.creatorName, visualAnchor: workspace.visualAnchor, prompt: input.prompt, seed: variationSeed, pose: input.pose, wardrobe: variationWardrobe, setting: input.setting, composition: input.composition, identityLock: input.identityLock });
         try {
-          const result = await generateImage({ prompt: safePrompt, quality: "medium", originalImages: referenceImageUrl ? [{ url: referenceImageUrl, mimeType: input.referenceImage?.mimeType }] : undefined });
+          const result = await generateImage({ prompt: safePrompt, quality: "medium", originalImages: referenceImageGenerationUrl ? [{ url: referenceImageGenerationUrl, mimeType: input.referenceImage?.mimeType }] : undefined });
           await updateAvatarProfile(profileId, { imageKey: result.key, imageUrl: result.url, status: "ready" });
           const contentId = await createContentItem({ workspaceId: input.workspaceId, avatarProfileId: profileId, title: `${workspace.creatorName} · Variation ${index + 1}`, kind: "image", channel: "Studio", format: "Portrait", body: input.prompt, assetKey: result.key, assetUrl: result.url, disclosureStamp, status: "ready" });
           results.push({ profileId, contentId, imageUrl: result.url, seed: variationSeed, variationIndex: index, isSelected: index === 0, wardrobe: variationWardrobe });

@@ -43,3 +43,11 @@
 - [x] Add explicit multi-selection so batch exports include only chosen variations.
 - [x] Validate enhanced batch behavior as far as the available authenticated browser session permits.
 - [x] Save and deliver a new enhanced batch checkpoint after these corrections.
+- [x] Trace why prompt-based avatar generation produces no visible image.
+- [x] Repair the UI/auth/server/image-service path so a prompt creates and displays a generated asset.
+- [x] Add regression coverage and actionable generation error feedback.
+- [x] Validate prompt-only generation through the server image service; browser E2E remains blocked by the preview session auth gate.
+- [x] Save and deliver a repaired generation checkpoint.
+- [x] Validate prompt-only and reference-guided generation through the server image service; browser UI E2E remains gated by the preview session login.
+- [x] Add regression coverage for provider-safe signed reference URLs.
+- [x] Improve generation failure UX to distinguish sign-in, provider, and storage errors.
