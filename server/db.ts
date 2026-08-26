@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { creatorWorkspaces, avatarProfiles, contentItems, InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -70,6 +70,25 @@ export async function createContentItem(input: typeof contentItems.$inferInsert)
 export async function listAvatarVariations(workspaceId: number, variationGroup: string) {
   const db = await getDb(); if (!db) return [];
   return db.select().from(avatarProfiles).where(and(eq(avatarProfiles.workspaceId, workspaceId), eq(avatarProfiles.variationGroup, variationGroup))).orderBy(avatarProfiles.variationIndex);
+}
+
+export async function getAvatarProfileById(workspaceId: number, profileId: number) {
+  const db = await getDb(); if (!db) return undefined;
+  const rows = await db.select().from(avatarProfiles).where(and(eq(avatarProfiles.workspaceId, workspaceId), eq(avatarProfiles.id, profileId))).limit(1);
+  return rows[0];
+}
+
+export async function updateVariationRanks(workspaceId: number, variationGroup: string, profileIds: number[]) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  for (let rank = 0; rank < profileIds.length; rank += 1) {
+    const profileId = profileIds[rank];
+    await db.update(avatarProfiles).set({ variationIndex: rank }).where(and(eq(avatarProfiles.workspaceId, workspaceId), eq(avatarProfiles.variationGroup, variationGroup), eq(avatarProfiles.id, profileId)));
+  }
+}
+
+export async function getAvatarProfilesByIds(workspaceId: number, profileIds: number[]) {
+  const db = await getDb(); if (!db || profileIds.length === 0) return [];
+  return db.select().from(avatarProfiles).where(and(eq(avatarProfiles.workspaceId, workspaceId), inArray(avatarProfiles.id, profileIds)));
 }
 
 export async function selectAvatarVariation(workspaceId: number, variationGroup: string, profileId: number) {

@@ -5,3 +5,5 @@ The live preview loads the Influencer Smart workspace and exposes the signed-out
 The latest desktop preview renders cleanly after the batch UI update. The managed screenshot shows the creator workspace shell and updated layout; the browser extraction still reports the signed-out auth gate in this session, so the protected batch mutation cannot be exercised without a stable authenticated session.
 
 Batch feature validation: typecheck, 5 unit tests, and production build pass. The live preview renders the updated responsive dashboard, but the current browser extraction still shows the signed-out auth gate, so protected batch generation, real image results, downloads, and winner persistence cannot be exercised in this session. The batch procedure and comparison UI are implemented for signed-in use.
+
+Enhanced batch UI validation: authenticated-style Avatar studio view exposes three visible wardrobe variation inputs and a 2/3/4 variation selector. The current browser extraction still shows the signed-out gate, so protected generation, live comparison cards, drag persistence, regeneration, and export actions remain session-dependent for end-to-end testing.

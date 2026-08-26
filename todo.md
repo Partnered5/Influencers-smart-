@@ -33,3 +33,13 @@
 - [x] Save and deliver a batch-variation checkpoint.
 - [x] Verify the protected batch flow contract, comparison-card rendering path, download actions, and winner persistence API; live generation requires an authenticated user session.
 - [x] Save and deliver a new checkpoint after the batch-variation implementation.
+- [x] Add wardrobe-style presets so one identity can be compared across distinct outfits in a batch.
+- [x] Add Instagram and TikTok batch export presets for selected variations with disclosure metadata.
+- [x] Add drag-to-rank ordering with persisted variation rank.
+- [x] Add per-variation regeneration while preserving the identity and batch brief.
+- [x] Validate enhanced batch controls, export actions, ranking, regeneration states, and responsive layouts.
+- [x] Save and deliver an enhanced batch checkpoint.
+- [x] Add a fourth editable wardrobe preset slot when batchCount is four.
+- [x] Add explicit multi-selection so batch exports include only chosen variations.
+- [x] Validate enhanced batch behavior as far as the available authenticated browser session permits.
+- [x] Save and deliver a new enhanced batch checkpoint after these corrections.
