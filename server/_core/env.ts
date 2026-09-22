@@ -7,4 +7,6 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  videoProviderUrl: process.env.UGC_VIDEO_PROVIDER_URL ?? "",
+  videoProviderKey: process.env.UGC_VIDEO_PROVIDER_KEY ?? "",
 };

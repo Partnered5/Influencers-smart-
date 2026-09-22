@@ -34,6 +34,7 @@ const logoImage = "/manus-storage/influencer-smart-logo_c39c5a3f.png";
 const navItems = [
   { label: "Overview", icon: Layers3 },
   { label: "Avatar studio", icon: ScanFace },
+  { label: "UGC video studio", icon: Clapperboard },
   { label: "Campaigns", icon: Clapperboard },
   { label: "Content library", icon: ImageIcon },
 ];
@@ -52,6 +53,8 @@ const styleOptions = [
   { label: "Active", detail: "Energetic, direct", image: activeImage },
 ];
 
+const videoObjectiveOptions = ["Reach 5M+ weekly views", "Create a $500 digital product", "Sell 6+ products daily", "Publish a proof-led case study", "Close a qualified lead", "Pitch a $5,000 sponsorship", "Run a faceless system in under one hour"] as const;
+
 export default function Home() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const workspaceQuery = trpc.workspace.list.useQuery(undefined, { enabled: isAuthenticated });
@@ -65,6 +68,9 @@ export default function Home() {
   const reorderVariationsMutation = trpc.avatar.reorderVariations.useMutation();
   const regenerateMutation = trpc.avatar.regenerate.useMutation();
   const batchExportMutation = trpc.avatar.batchExport.useMutation();
+  const videoMutation = trpc.video.generate.useMutation();
+  const videoObjectives = trpc.video.objectives.useQuery();
+  const videoJobsQuery = trpc.video.list.useQuery({ workspaceId }, { enabled: isAuthenticated && workspaceId > 0 });
   const [activeNav, setActiveNav] = useState("Overview");
   const [activeStyle, setActiveStyle] = useState("Editorial");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -88,6 +94,14 @@ export default function Home() {
   const [draggedVariation, setDraggedVariation] = useState<number | null>(null);
   const [variationGroup, setVariationGroup] = useState<string | null>(null);
   const [generatedWorkspaceId, setGeneratedWorkspaceId] = useState(0);
+  const [videoTitle, setVideoTitle] = useState("The ritual that makes mornings easier");
+  const [videoObjective, setVideoObjective] = useState<(typeof videoObjectiveOptions)[number]>(videoObjectiveOptions[0]);
+  const [videoPrompt, setVideoPrompt] = useState("Show a believable morning routine with one surprising product payoff and an honest creator reaction.");
+  const [videoScript, setVideoScript] = useState("Hook: I did not expect this to change my morning.\nShow the product in use, one specific benefit, and a clear invitation to try it.");
+  const [videoAspect, setVideoAspect] = useState<"portrait" | "landscape">("portrait");
+  const [videoDuration, setVideoDuration] = useState(15);
+  const [videoVoiceover, setVideoVoiceover] = useState(true);
+  const [videoResult, setVideoResult] = useState<string | null>(null);
 
   const activeLook = useMemo(
     () => styleOptions.find((item) => item.label === activeStyle) ?? styleOptions[0],
@@ -189,6 +203,19 @@ export default function Home() {
     } catch (error) { toast.error(error instanceof Error ? error.message : "Export failed"); }
   }
 
+  async function handleGenerateVideo() {
+    if (!isAuthenticated) { toast.info("Sign in to create and save a UGC video"); startLogin(); return; }
+    setGenerating(true); setGenerationError(null);
+    try {
+      let activeWorkspaceId = workspaceId;
+      if (!activeWorkspaceId) { activeWorkspaceId = await workspaceCreateMutation.mutateAsync({ name: "Aria Vale / Studio", creatorName: "Aria Vale", creatorBio: "A thoughtful fictional virtual creator for everyday rituals.", persona: "Curious, warm, specific, and observant.", voice: "Warm, considered, never salesy.", visualAnchor: "Warm olive skin, shoulder-length dark wavy hair, hazel eyes, softly angular face.", disclosureEnabled: true }); await workspaceQuery.refetch(); }
+      const result = await videoMutation.mutateAsync({ workspaceId: activeWorkspaceId, title: videoTitle, objective: videoObjective, prompt: videoPrompt, script: videoScript, aspectRatio: videoAspect, durationSeconds: videoDuration, voiceover: videoVoiceover });
+      setVideoResult(result.url ?? null); await videoJobsQuery.refetch(); await libraryQuery.refetch();
+      toast.success(result.url ? "UGC video ready" : "UGC video queued", { description: "The draft includes a visible AI disclosure and saved job status." });
+    } catch (error) { const message = error instanceof Error ? error.message : "UGC video generation failed"; setGenerationError(message); toast.error(message); }
+    finally { setGenerating(false); }
+  }
+
   function handleCopy() {
     navigator.clipboard?.writeText("Meet Aria Vale — a thoughtful virtual creator for the rituals that make a day feel like yours.");
     toast.success("Caption copied");
@@ -236,6 +263,17 @@ export default function Home() {
               <div className="consistency-card card-surface"><div className="card-topline"><div><span className="section-number">03</span><span className="section-title">Brand consistency</span></div><span className="score-badge">94 / 100</span></div><div className="progress-line"><span /></div><div className="consistency-row"><div><strong>Voice &amp; point of view</strong><span>Warm, specific, never salesy</span></div><Check size={17} /></div><div className="consistency-row"><div><strong>Visual anchor</strong><span>Identity held across 12 assets</span></div><Check size={17} /></div><div className="consistency-row warning"><div><strong>Disclosure stamp</strong><span>Applied to every export</span></div><Check size={17} /></div></div>
             </div>
           </section>
+
+          {activeNav === "UGC video studio" && <section className="video-control-panel card-surface">
+            <div className="card-topline"><div><span className="section-number">UGC / 01—07</span><span className="section-title">UGC director</span></div><span className="ai-label"><Sparkles size={13} /> SCRIPT → SHOTS → VIDEO</span></div>
+            <div className="video-intro"><div><h2>Turn one idea into a <em>publishable clip.</em></h2><p>Choose the business outcome, shape the hook, then send a production-ready brief to your configured video provider.</p></div><div className="video-status"><span className="disclosure-dot" /> AI disclosure built in</div></div>
+            <div className="video-objectives">{(videoObjectives.data ?? ["Reach 5M+ weekly views", "Create a $500 digital product", "Sell 6+ products daily", "Publish a proof-led case study", "Close a qualified lead", "Pitch a $5,000 sponsorship", "Run a faceless system in under one hour"]).map((objective, index) => <button key={objective} className={videoObjective === objective ? "selected" : ""} onClick={() => setVideoObjective(objective)}><span>0{index + 1}</span>{objective}</button>)}</div>
+            <div className="video-form-grid"><label className="control-field"><span>Video title</span><input value={videoTitle} onChange={(event) => setVideoTitle(event.target.value)} /></label><label className="control-field"><span>Aspect ratio</span><select value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as "portrait" | "landscape")}><option value="portrait">Portrait · 9:16</option><option value="landscape">Landscape · 16:9</option></select></label><label className="control-field"><span>Length</span><select value={videoDuration} onChange={(event) => setVideoDuration(Number(event.target.value))}><option value={10}>10 seconds</option><option value={15}>15 seconds</option><option value={30}>30 seconds</option><option value={45}>45 seconds</option></select></label><label className="control-field"><span>Creative brief</span><textarea value={videoPrompt} onChange={(event) => setVideoPrompt(event.target.value)} /></label><label className="control-field"><span>Script / voiceover</span><textarea value={videoScript} onChange={(event) => setVideoScript(event.target.value)} /></label></div>
+            <div className="control-footer"><label className="lock-toggle"><input type="checkbox" checked={videoVoiceover} onChange={(event) => setVideoVoiceover(event.target.checked)} /><span className="toggle-track"><span /></span><strong>Voiceover + captions</strong><small>Natural delivery, readable on-screen text</small></label><button className="primary-button" onClick={handleGenerateVideo} disabled={generating}><Play size={16} fill="currentColor" /> {generating ? "Sending to video provider…" : "Generate UGC video"}</button></div>
+            {generationError && <div className="generation-error" role="alert">{generationError}</div>}
+            {videoResult && <div className="video-result"><video controls src={videoResult} /><div><strong>Ready to review</strong><span>AI-generated virtual creator · Influencer Smart</span><a href={videoResult} download={`${videoTitle.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.mp4`}>Download video</a></div></div>}
+            {videoJobsQuery.data?.length ? <div className="video-job-list"><span className="section-title">Recent video jobs</span>{videoJobsQuery.data.slice(0, 3).map((job) => <div key={job.id}><strong>{job.title}</strong><span>{job.objective} · {job.status}</span></div>)}</div> : null}
+          </section>}
 
           {activeNav === "Avatar studio" && <section className="avatar-control-panel card-surface">
             <div className="card-topline"><div><span className="section-number">STUDIO</span><span className="section-title">Generate a new identity-safe frame</span></div><span className="ai-label"><Sparkles size={13} /> SERVER-SIDE GENERATION</span></div>

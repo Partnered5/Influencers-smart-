@@ -52,7 +52,7 @@ export const contentItems = mysqlTable("content_items", {
   workspaceId: int("workspaceId").notNull(),
   avatarProfileId: int("avatarProfileId"),
   title: varchar("title", { length: 180 }).notNull(),
-  kind: mysqlEnum("kind", ["image", "caption", "campaign", "export"]).notNull(),
+  kind: mysqlEnum("kind", ["image", "video", "caption", "campaign", "export"]).notNull(),
   channel: varchar("channel", { length: 40 }),
   format: varchar("format", { length: 40 }),
   body: text("body"),
@@ -64,8 +64,28 @@ export const contentItems = mysqlTable("content_items", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const videoJobs = mysqlTable("video_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  workspaceId: int("workspaceId").notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  objective: varchar("objective", { length: 180 }).notNull(),
+  prompt: text("prompt").notNull(),
+  script: text("script").notNull(),
+  aspectRatio: mysqlEnum("aspectRatio", ["portrait", "landscape"]).notNull().default("portrait"),
+  durationSeconds: int("durationSeconds").notNull().default(15),
+  voiceover: int("voiceover").notNull().default(1),
+  assetKey: varchar("assetKey", { length: 255 }),
+  assetUrl: varchar("assetUrl", { length: 500 }),
+  providerJobId: varchar("providerJobId", { length: 180 }),
+  status: mysqlEnum("status", ["draft", "queued", "ready", "failed"]).notNull().default("draft"),
+  disclosureStamp: varchar("disclosureStamp", { length: 180 }).notNull().default("AI-generated virtual creator · Influencer Smart"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type CreatorWorkspace = typeof creatorWorkspaces.$inferSelect;
 export type AvatarProfile = typeof avatarProfiles.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
+export type VideoJob = typeof videoJobs.$inferSelect;

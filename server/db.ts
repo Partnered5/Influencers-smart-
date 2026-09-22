@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { creatorWorkspaces, avatarProfiles, contentItems, InsertUser, users } from "../drizzle/schema";
+import { creatorWorkspaces, avatarProfiles, contentItems, videoJobs, InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -65,6 +65,22 @@ export async function createContentItem(input: typeof contentItems.$inferInsert)
   const db = await getDb(); if (!db) throw new Error("Database is not available");
   const result = await db.insert(contentItems).values(input);
   return Number(result[0].insertId);
+}
+
+export async function createVideoJob(input: typeof videoJobs.$inferInsert) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const result = await db.insert(videoJobs).values(input);
+  return Number(result[0].insertId);
+}
+
+export async function updateVideoJob(id: number, input: Partial<typeof videoJobs.$inferInsert>) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  await db.update(videoJobs).set(input).where(eq(videoJobs.id, id));
+}
+
+export async function listVideoJobs(workspaceId: number) {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(videoJobs).where(eq(videoJobs.workspaceId, workspaceId)).orderBy(desc(videoJobs.updatedAt)).limit(30);
 }
 
 export async function listAvatarVariations(workspaceId: number, variationGroup: string) {

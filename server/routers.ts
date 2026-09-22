@@ -2,10 +2,11 @@ import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { generateImage } from "./_core/imageGeneration";
+import { buildSafeUGCPrompt, generateUGCVideo, hasUGCVideoProvider, UGC_OBJECTIVES } from "./_core/videoGeneration";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { createAvatarProfile, createContentItem, createWorkspace, getAvatarProfileById, getAvatarProfilesByIds, getWorkspaceForUser, listAvatarVariations, listContentItems, listWorkspaces, selectAvatarVariation, updateAvatarProfile, updateVariationRanks } from "./db";
+import { createAvatarProfile, createContentItem, createVideoJob, createWorkspace, getAvatarProfileById, getAvatarProfilesByIds, getWorkspaceForUser, listAvatarVariations, listContentItems, listVideoJobs, listWorkspaces, selectAvatarVariation, updateAvatarProfile, updateVariationRanks, updateVideoJob } from "./db";
 import { randomUUID } from "node:crypto";
 
 const workspaceInput = z.object({
@@ -63,6 +64,18 @@ const exportInput = z.object({
   caption: z.string().min(1),
 });
 
+const videoInput = z.object({
+  workspaceId: z.number().int().positive(),
+  title: z.string().min(1).max(180),
+  objective: z.enum(UGC_OBJECTIVES),
+  prompt: z.string().min(10).max(4000),
+  script: z.string().min(10).max(8000),
+  aspectRatio: z.enum(["portrait", "landscape"]).default("portrait"),
+  durationSeconds: z.number().int().min(5).max(60).default(15),
+  voiceover: z.boolean().default(true),
+  referenceImageUrl: z.string().url().optional(),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -85,6 +98,26 @@ export const appRouter = router({
       if (!workspace) throw new Error("Workspace not found");
       const id = await createContentItem({ workspaceId: input.workspaceId, avatarProfileId: input.avatarProfileId, title: input.title, kind: "export", channel: input.channel, format: input.format, body: `${input.caption}\n\n${disclosureStamp}`, disclosureStamp, status: "exported" });
       return { id, title: input.title, channel: input.channel, format: input.format, disclosureStamp };
+    }),
+  }),
+  video: router({
+    objectives: publicProcedure.query(() => UGC_OBJECTIVES),
+    providerStatus: protectedProcedure.query(() => ({ configured: hasUGCVideoProvider() })),
+    list: protectedProcedure.input(z.object({ workspaceId: z.number().int().positive() })).query(({ ctx, input }) => getWorkspaceForUser(input.workspaceId, ctx.user.id).then(workspace => workspace ? listVideoJobs(input.workspaceId) : [])),
+    generate: protectedProcedure.input(videoInput).mutation(async ({ ctx, input }) => {
+      const workspace = await getWorkspaceForUser(input.workspaceId, ctx.user.id);
+      if (!workspace) throw new Error("Workspace not found");
+      const disclosureStamp = "AI-generated virtual creator · Influencer Smart";
+      const jobId = await createVideoJob({ workspaceId: input.workspaceId, title: input.title, objective: input.objective, prompt: input.prompt, script: input.script, aspectRatio: input.aspectRatio, durationSeconds: input.durationSeconds, voiceover: input.voiceover ? 1 : 0, status: "queued", disclosureStamp });
+      try {
+        const result = await generateUGCVideo({ ...input, prompt: `${workspace.creatorName} creator brief. ${input.prompt}`, script: `${input.script}\n\n${disclosureStamp}` });
+        await updateVideoJob(jobId, { assetKey: result.key, assetUrl: result.url, providerJobId: result.externalJobId, status: result.url ? "ready" : "queued" });
+        if (result.url) await createContentItem({ workspaceId: input.workspaceId, title: input.title, kind: "video", channel: input.aspectRatio === "portrait" ? "TikTok / Reels" : "YouTube", format: `${input.durationSeconds}s ${input.aspectRatio}`, body: `${input.script}\n\n${disclosureStamp}`, assetKey: result.key, assetUrl: result.url, disclosureStamp, status: "ready" });
+        return { jobId, ...result, disclosureStamp };
+      } catch (error) {
+        await updateVideoJob(jobId, { status: "failed" });
+        throw error;
+      }
     }),
   }),
   avatar: router({
