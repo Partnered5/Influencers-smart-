@@ -74,6 +74,11 @@ const videoInput = z.object({
   durationSeconds: z.number().int().min(5).max(60).default(15),
   voiceover: z.boolean().default(true),
   referenceImageUrl: z.string().url().optional(),
+  brandName: z.string().min(1).max(120).default("Influencer Smart"),
+  overlayHeadline: z.string().max(180).default("Make the next decision legible"),
+  overlaySubhead: z.string().max(240).default("A clearer way to plan what comes next."),
+  ctaText: z.string().max(120).default("Learn more"),
+  brandLogo: z.object({ b64Json: z.string().min(100), mimeType: z.string().regex(/^image\/(png|jpeg|webp)$/), fileName: z.string().max(160) }).optional(),
 });
 
 export const appRouter = router({
@@ -108,9 +113,16 @@ export const appRouter = router({
       const workspace = await getWorkspaceForUser(input.workspaceId, ctx.user.id);
       if (!workspace) throw new Error("Workspace not found");
       const disclosureStamp = "AI-generated virtual creator · Influencer Smart";
-      const jobId = await createVideoJob({ workspaceId: input.workspaceId, title: input.title, objective: input.objective, prompt: input.prompt, script: input.script, aspectRatio: input.aspectRatio, durationSeconds: input.durationSeconds, voiceover: input.voiceover ? 1 : 0, status: "queued", disclosureStamp });
+      let logoKey: string | undefined;
+      let logoUrl: string | undefined;
+      if (input.brandLogo) {
+        const storedLogo = await storagePut(`brand-logos/${ctx.user.id}/${input.brandLogo.fileName}`, Buffer.from(input.brandLogo.b64Json, "base64"), input.brandLogo.mimeType);
+        logoKey = storedLogo.key;
+        logoUrl = await storageGetSignedUrl(storedLogo.key);
+      }
+      const jobId = await createVideoJob({ workspaceId: input.workspaceId, title: input.title, brandName: input.brandName, overlayHeadline: input.overlayHeadline, overlaySubhead: input.overlaySubhead, ctaText: input.ctaText, logoKey, objective: input.objective, prompt: input.prompt, script: input.script, aspectRatio: input.aspectRatio, durationSeconds: input.durationSeconds, voiceover: input.voiceover ? 1 : 0, status: "queued", disclosureStamp });
       try {
-        const result = await generateUGCVideo({ ...input, prompt: `${workspace.creatorName} creator brief. ${input.prompt}`, script: `${input.script}\n\n${disclosureStamp}` });
+        const result = await generateUGCVideo({ ...input, brandLogoUrl: logoUrl, prompt: `${workspace.creatorName} creator brief for ${input.brandName}. ${input.prompt}`, script: `${input.script}\n\n${disclosureStamp}` });
         await updateVideoJob(jobId, { assetKey: result.key, assetUrl: result.url, providerJobId: result.externalJobId, status: result.url ? "ready" : "queued" });
         if (result.url) await createContentItem({ workspaceId: input.workspaceId, title: input.title, kind: "video", channel: input.aspectRatio === "portrait" ? "TikTok / Reels" : "YouTube", format: `${input.durationSeconds}s ${input.aspectRatio}`, body: `${input.script}\n\n${disclosureStamp}`, assetKey: result.key, assetUrl: result.url, disclosureStamp, status: "ready" });
         return { jobId, ...result, disclosureStamp };

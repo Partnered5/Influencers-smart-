@@ -102,6 +102,11 @@ export default function Home() {
   const [videoDuration, setVideoDuration] = useState(15);
   const [videoVoiceover, setVideoVoiceover] = useState(true);
   const [videoResult, setVideoResult] = useState<string | null>(null);
+  const [brandName, setBrandName] = useState("CapitalSurvey");
+  const [overlayHeadline, setOverlayHeadline] = useState("Make the next decision legible");
+  const [overlaySubhead, setOverlaySubhead] = useState("Clearer investing decisions for the life you are building.");
+  const [ctaText, setCtaText] = useState("Explore CapitalSurvey");
+  const [brandLogo, setBrandLogo] = useState<{ b64Json: string; mimeType: string; fileName: string } | undefined>();
 
   const activeLook = useMemo(
     () => styleOptions.find((item) => item.label === activeStyle) ?? styleOptions[0],
@@ -120,6 +125,15 @@ export default function Home() {
       setReferencePreview(result);
       toast.success('Reference image attached');
     };
+    reader.readAsDataURL(file);
+  }
+
+  function handleBrandLogoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { toast.error('Please upload a PNG, JPEG, or WebP logo'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { const result = String(reader.result); setBrandLogo({ b64Json: result.split(',')[1] ?? '', mimeType: file.type, fileName: file.name }); toast.success('Brand logo attached'); };
     reader.readAsDataURL(file);
   }
 
@@ -209,7 +223,7 @@ export default function Home() {
     try {
       let activeWorkspaceId = workspaceId;
       if (!activeWorkspaceId) { activeWorkspaceId = await workspaceCreateMutation.mutateAsync({ name: "Aria Vale / Studio", creatorName: "Aria Vale", creatorBio: "A thoughtful fictional virtual creator for everyday rituals.", persona: "Curious, warm, specific, and observant.", voice: "Warm, considered, never salesy.", visualAnchor: "Warm olive skin, shoulder-length dark wavy hair, hazel eyes, softly angular face.", disclosureEnabled: true }); await workspaceQuery.refetch(); }
-      const result = await videoMutation.mutateAsync({ workspaceId: activeWorkspaceId, title: videoTitle, objective: videoObjective, prompt: videoPrompt, script: videoScript, aspectRatio: videoAspect, durationSeconds: videoDuration, voiceover: videoVoiceover });
+      const result = await videoMutation.mutateAsync({ workspaceId: activeWorkspaceId, title: videoTitle, objective: videoObjective, prompt: videoPrompt, script: videoScript, aspectRatio: videoAspect, durationSeconds: videoDuration, voiceover: videoVoiceover, brandName, overlayHeadline, overlaySubhead, ctaText, ...(brandLogo ? { brandLogo } : {}) });
       setVideoResult(result.url ?? null); await videoJobsQuery.refetch(); await libraryQuery.refetch();
       toast.success(result.url ? "UGC video ready" : "UGC video queued", { description: "The draft includes a visible AI disclosure and saved job status." });
     } catch (error) { const message = error instanceof Error ? error.message : "UGC video generation failed"; setGenerationError(message); toast.error(message); }
@@ -268,7 +282,7 @@ export default function Home() {
             <div className="card-topline"><div><span className="section-number">UGC / 01—07</span><span className="section-title">UGC director</span></div><span className="ai-label"><Sparkles size={13} /> SCRIPT → SHOTS → VIDEO</span></div>
             <div className="video-intro"><div><h2>Turn one idea into a <em>publishable clip.</em></h2><p>Choose the business outcome, shape the hook, then send a production-ready brief to your configured video provider.</p></div><div className="video-status"><span className="disclosure-dot" /> AI disclosure built in</div></div>
             <div className="video-objectives">{(videoObjectives.data ?? ["Reach 5M+ weekly views", "Create a $500 digital product", "Sell 6+ products daily", "Publish a proof-led case study", "Close a qualified lead", "Pitch a $5,000 sponsorship", "Run a faceless system in under one hour"]).map((objective, index) => <button key={objective} className={videoObjective === objective ? "selected" : ""} onClick={() => setVideoObjective(objective)}><span>0{index + 1}</span>{objective}</button>)}</div>
-            <div className="video-form-grid"><label className="control-field"><span>Video title</span><input value={videoTitle} onChange={(event) => setVideoTitle(event.target.value)} /></label><label className="control-field"><span>Aspect ratio</span><select value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as "portrait" | "landscape")}><option value="portrait">Portrait · 9:16</option><option value="landscape">Landscape · 16:9</option></select></label><label className="control-field"><span>Length</span><select value={videoDuration} onChange={(event) => setVideoDuration(Number(event.target.value))}><option value={10}>10 seconds</option><option value={15}>15 seconds</option><option value={30}>30 seconds</option><option value={45}>45 seconds</option></select></label><label className="control-field"><span>Creative brief</span><textarea value={videoPrompt} onChange={(event) => setVideoPrompt(event.target.value)} /></label><label className="control-field"><span>Script / voiceover</span><textarea value={videoScript} onChange={(event) => setVideoScript(event.target.value)} /></label></div>
+            <div className="video-form-grid"><label className="control-field"><span>Video title</span><input value={videoTitle} onChange={(event) => setVideoTitle(event.target.value)} /></label><label className="control-field"><span>Brand</span><input value={brandName} onChange={(event) => setBrandName(event.target.value)} /></label><label className="control-field"><span>Aspect ratio</span><select value={videoAspect} onChange={(event) => setVideoAspect(event.target.value as "portrait" | "landscape")}><option value="portrait">Portrait · 9:16</option><option value="landscape">Landscape · 16:9</option></select></label><label className="control-field"><span>Length</span><select value={videoDuration} onChange={(event) => setVideoDuration(Number(event.target.value))}><option value={10}>10 seconds</option><option value={15}>15 seconds</option><option value={30}>30 seconds</option><option value={45}>45 seconds</option></select></label><label className="control-field"><span>Creative brief</span><textarea value={videoPrompt} onChange={(event) => setVideoPrompt(event.target.value)} /></label><label className="control-field"><span>Script / voiceover</span><textarea value={videoScript} onChange={(event) => setVideoScript(event.target.value)} /></label><label className="control-field"><span>Overlay headline</span><input value={overlayHeadline} onChange={(event) => setOverlayHeadline(event.target.value)} /></label><label className="control-field"><span>Overlay subhead</span><input value={overlaySubhead} onChange={(event) => setOverlaySubhead(event.target.value)} /></label><label className="control-field"><span>CTA button</span><input value={ctaText} onChange={(event) => setCtaText(event.target.value)} /></label><label className="reference-upload"><span>Brand logo</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleBrandLogoChange} /><div className="reference-drop"><Plus size={16} /><strong>{brandLogo ? "Logo attached" : "Upload logo"}</strong><small>PNG, JPG, WebP · shown top-left</small></div></label></div>
             <div className="control-footer"><label className="lock-toggle"><input type="checkbox" checked={videoVoiceover} onChange={(event) => setVideoVoiceover(event.target.checked)} /><span className="toggle-track"><span /></span><strong>Voiceover + captions</strong><small>Natural delivery, readable on-screen text</small></label><button className="primary-button" onClick={handleGenerateVideo} disabled={generating}><Play size={16} fill="currentColor" /> {generating ? "Sending to video provider…" : "Generate UGC video"}</button></div>
             {generationError && <div className="generation-error" role="alert">{generationError}</div>}
             {videoResult && <div className="video-result"><video controls src={videoResult} /><div><strong>Ready to review</strong><span>AI-generated virtual creator · Influencer Smart</span><a href={videoResult} download={`${videoTitle.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.mp4`}>Download video</a></div></div>}

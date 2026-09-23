@@ -76,3 +76,25 @@ Then sign in, open **UGC video studio**, select one of the seven objectives, ent
 ## Safety and disclosure
 
 Video prompts are built server-side and constrain output to fictional adult creators or faceless product demos. The system avoids real-person imitation, minors, medical or financial guarantees, and undisclosed sponsorship implications. Every saved video and script carries `AI-generated virtual creator · Influencer Smart`.
+
+## Branded overlays and dynamic logos
+
+The UGC director accepts `brandName`, `overlayHeadline`, `overlaySubhead`, `ctaText`, and an optional uploaded `brandLogo`. Logo files are stored privately, converted to a signed server-side URL, and composited in the top-left of local MP4 renders. Overlay copy is rendered as a lower-third headline, supporting line, CTA button, and the required AI disclosure.
+
+Example CapitalSurvey launch payload:
+
+```json
+{
+  "brandName": "CapitalSurvey",
+  "overlayHeadline": "Make the next decision legible",
+  "overlaySubhead": "Clearer investing decisions for the life you are building.",
+  "ctaText": "Explore CapitalSurvey",
+  "prompt": "A female creator introduces CapitalSurvey as a private financial-practice workspace for clearer investing decisions, life goals, and long-term planning.",
+  "script": "If your next money decision feels noisy, start by making it legible. CapitalSurvey helps you connect investing decisions to the life you are building. Explore CapitalSurvey.",
+  "aspectRatio": "portrait",
+  "durationSeconds": 15,
+  "voiceover": true
+}
+```
+
+Use only claims supported by the brand. For financial brands, avoid promises of returns, guaranteed outcomes, or personalized financial advice unless the brand has supplied compliant copy and review. The public site currently describes CapitalSurvey as a private financial practice workspace for clearer investing decisions, life goals, and long-term planning.
