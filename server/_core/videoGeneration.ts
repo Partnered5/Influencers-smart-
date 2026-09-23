@@ -38,13 +38,14 @@ export type UGCVideoResponse = {
 
 export function buildSafeUGCPrompt(input: UGCVideoOptions) {
   return [
-    "Create a polished still frame for a short-form UGC marketing video using a fictional adult creator or a faceless product-demo style.",
+    "Create a highly photorealistic, camera-ready still frame for a premium short-form UGC marketing or product-launch video using a fictional adult creator or a faceless product-demo style.",
     `Objective: ${input.objective}.`,
     `Creative brief: ${input.prompt}.`,
     `Spoken script and on-screen copy: ${input.script}.`,
-    "Use natural handheld UGC composition, a strong first-second hook, readable caption space, authentic product use, and a clear call to action.",
+    "Use realistic human anatomy, natural skin texture, believable hands, accurate eyes, subtle expression, authentic handheld smartphone composition, soft daylight, lens depth, a strong first-second hook, readable caption space, authentic product use, and a clear call to action.",
+    "Make it suitable for a polished brand launch, testimonial, product demo, creator ad, or faceless explainer rather than a synthetic avatar showcase.",
     "Do not imitate a real person, use a minor, make medical or financial guarantees, or imply undisclosed sponsorship.",
-    "Leave clean lower-third space for the visible AI-generated disclosure.",
+    "Leave clean lower-third space for the visible AI-generated disclosure; do not render any other text or logos into the image.",
   ].join(" ");
 }
 
@@ -72,7 +73,7 @@ async function generateWithConfiguredProvider(options: UGCVideoOptions, provider
 }
 
 async function generateInternalLocalVideo(options: UGCVideoOptions): Promise<UGCVideoResponse> {
-  const still = await generateImage({ prompt: buildSafeUGCPrompt(options), quality: "medium" });
+  const still = await generateImage({ prompt: buildSafeUGCPrompt(options), model: "MODEL_GPT_IMAGE_2", quality: "medium" });
   if (!still.key) throw new Error("Internal image generation returned no storage key");
   const workDir = await mkdtemp(join(tmpdir(), "influencer-smart-"));
   const inputPath = join(workDir, "creator-still.png");
@@ -85,7 +86,7 @@ async function generateInternalLocalVideo(options: UGCVideoOptions): Promise<UGC
     const width = options.aspectRatio === "portrait" ? 720 : 1280;
     const height = options.aspectRatio === "portrait" ? 1280 : 720;
     const duration = Math.max(5, Math.min(60, options.durationSeconds));
-    const filter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},zoompan=z='min(zoom+0.0008,1.08)':d=${duration * 25}:s=${width}x${height}:fps=25,drawtext=text='AI-GENERATED VIRTUAL CREATOR':fontcolor=white:fontsize=${options.aspectRatio === "portrait" ? 24 : 30}:box=1:boxcolor=black@0.55:boxborderw=10:x=(w-text_w)/2:y=h-100`;
+    const filter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},eq=contrast=1.04:saturation=1.06:brightness=0.01,zoompan=z='min(zoom+0.00065,1.06)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${duration * 25}:s=${width}x${height}:fps=25,vignette=PI/5,drawtext=text='AI-GENERATED VIRTUAL CREATOR':fontcolor=white:fontsize=${options.aspectRatio === "portrait" ? 24 : 30}:box=1:boxcolor=black@0.55:boxborderw=10:x=(w-text_w)/2:y=h-100`;
     await execFileAsync("ffmpeg", ["-y", "-loop", "1", "-i", inputPath, "-vf", filter, "-t", String(duration), "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", outputPath]);
     const buffer = await readFile(outputPath);
     const stored = await storagePut(`generated/ugc-local-${Date.now()}.mp4`, buffer, "video/mp4");
